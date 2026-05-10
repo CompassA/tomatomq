@@ -9,21 +9,21 @@
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "cmd/admin/main.go"
+            "program": "${workspaceFolder}/cmd/admin/main.go"
         },
         {
             "name": "broker",
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "cmd/broker/main.go"
+            "program": "${workspaceFolder}/cmd/broker/main.go"
         },
         {
             "name": "demo-client",
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "cmd/demo-client/main.go"
+            "program": "${workspaceFolder}/cmd/demo-client/main.go"
         }
     ]
 }
