@@ -6,11 +6,9 @@ package broker
 
 import (
 	"io"
+	"log/slog"
 	"net"
 	"time"
-
-	"github.com/compassa/tomatomq/internal/logger"
-	"go.uber.org/zap"
 )
 
 type Server struct {
@@ -43,12 +41,12 @@ func (s *Server) Serve() {
 	for {
 		conn, err := s.Ln.Accept()
 		if err != nil {
-			logger.BrokerApp.Error("accept erorr", zap.Error(err))
+			AppLogger.Error("accept erorr", slog.Any("error", err))
 			return
 		}
-		logger.BrokerApp.Info("NewConnection",
-			zap.String("local", conn.LocalAddr().String()),
-			zap.String("remote", conn.RemoteAddr().String()))
+		AppLogger.Info("NewConnection",
+			slog.String("local", conn.LocalAddr().String()),
+			slog.String("remote", conn.RemoteAddr().String()))
 
 		session := NewSession(conn, 128)
 		s.Sessions = append(s.Sessions, *session)
@@ -80,10 +78,12 @@ func (s *Session) ReadLoop() {
 				if n > 0 {
 					handleNewBytes(buf[:n])
 				}
-				logger.BrokerApp.Info("client session closed", zap.String("remote", s.conn.RemoteAddr().String()))
+				AppLogger.Info("client session closed", slog.String("remote", s.conn.RemoteAddr().String()))
 				return
 			} else {
-				logger.BrokerApp.Error("cilent read error", zap.String("remote", s.conn.RemoteAddr().String()), zap.Error(err))
+				AppLogger.Error("cilent read error",
+					slog.String("remote", s.conn.RemoteAddr().String()),
+					slog.Any("error", err))
 				return
 			}
 		}
@@ -101,7 +101,9 @@ func (s *Session) WriteLoop() {
 		select {
 		case msg := <-s.Send:
 			if _, err := s.conn.Write(msg); err != nil {
-				logger.BrokerApp.Error("cilent write error", zap.String("remote", s.conn.RemoteAddr().String()), zap.Error(err))
+				AppLogger.Error("cilent write error",
+					slog.String("remote", s.conn.RemoteAddr().String()),
+					slog.Any("error", err))
 				return
 			}
 		case <-s.done:

@@ -6,16 +6,18 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 
-	"github.com/compassa/tomatomq/internal/logger"
+	"github.com/compassa/tomatomq/internal/broker"
 )
 
 func main() {
-	defer logger.Sync()
+	env, cfg := broker.LoadConfig()
 
-	if err := logger.InitBroker(); err != nil {
-		panic(err)
-	}
+	broker.LoadLogger(env, &cfg.Log)
+
+	broker.AppLogger.Info("info", slog.Int("key", 124))
+	broker.AppLogger.Error("error", slog.String("key", "value"))
 
 	fmt.Printf("broker")
 }

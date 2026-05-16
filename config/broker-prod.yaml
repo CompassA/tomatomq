@@ -1,0 +1,21 @@
+server:
+  port: 8080
+log:
+  writers:
+    - id: app-default
+      type: FILE
+      level: INFO
+      path: brokerlog/app-default.log
+      maxSize: 512
+      maxBackups: 10
+      maxAge: 3
+    - id: common-error
+      type: FILE
+      level: ERROR
+      path: brokerlog/common-error.log
+      maxSize: 512
+      maxBackups: 20
+      maxAge: 3
+  loggers:
+    - name: app-logger
+      writers: ["app-default", "common-error"]

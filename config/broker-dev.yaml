@@ -1,0 +1,13 @@
+server:
+  port: 8080
+log:
+  writers:
+    - id: app-default
+      type: STDOUT
+      level: INFO
+    - id: common-error
+      type: STDERR
+      level: ERROR
+  loggers:
+    - name: app-logger
+      writers: ["app-default", "common-error"]
