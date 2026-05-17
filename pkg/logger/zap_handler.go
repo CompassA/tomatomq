@@ -20,7 +20,7 @@ import (
 )
 
 type ZapHandler struct {
-	logger *zap.Logger // 通过 core 构建的 Logger，用于打印日志
+	Logger *zap.Logger // 通过 core 构建的 Logger，用于打印日志
 }
 
 // cores: 目标文件
@@ -38,7 +38,7 @@ func NewZapHandler(cores []zapcore.Core) *ZapHandler {
 	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 
 	return &ZapHandler{
-		logger: logger,
+		Logger: logger,
 	}
 }
 
@@ -48,7 +48,7 @@ func (h *ZapHandler) Handle(c context.Context, r slog.Record) error {
 		fields = append(fields, slogAttrToZapField(a))
 		return true
 	})
-	h.logger.Log(convertLevel(r.Level), r.Message, fields...)
+	h.Logger.Log(convertLevel(r.Level), r.Message, fields...)
 	return nil
 }
 

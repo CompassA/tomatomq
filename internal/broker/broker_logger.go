@@ -56,6 +56,10 @@ func LoadLogger(env Env, logcfg *LogConfig) {
 	AppLogger = fetchLogger("app-logger", env, loggerMap)
 }
 
+func SyncLogger() {
+	AppLogger.Handler().(*logger.ZapHandler).Logger.Sync()
+}
+
 func fetchLogger(name string, env Env, loggerMap map[string]*slog.Logger) *slog.Logger {
 	logger, ok := loggerMap[name]
 	if ok {

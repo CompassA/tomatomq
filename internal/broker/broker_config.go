@@ -14,6 +14,7 @@ import (
 const (
 	// 系统相关环境变量
 	AppBrokerEnvironmentVarAppEnv = "APP_ENV" // 应用环境
+	AppBrokerEnvironmentVarPodIp  = "POD_IP"  // IP环境变量, 设置了这个环境变量后, broker会直接将这个IP注册当作自己的机器ip, 注册至etcd
 
 	// 环境标识
 	AppBrokerEnvDev  Env = "dev"
@@ -35,17 +36,25 @@ const (
 )
 
 type Config struct {
-	Server ServerConfig `mapstructure:"server"`
-	Log    LogConfig    `mapstructure:"log"`
+	Server ServerConfig `mapstructure:"server"` // broker服务配置
+	Log    LogConfig    `mapstructure:"log"`    // 日志配置
+	Etcd   EtcdConfig   `mapstructure:"etcd"`   // etcd配置
 }
 
 type ServerConfig struct {
-	Port int `mapstructure:"port"`
+	Port       int    `mapstructure:"port"`       // broker服务端口
+	Group      string `mapstructure:"group"`      // broker分组, topic的所有队列只会被单个分组下的broker处理
+	BrokerName string `mapstructure:"brokerName"` // broker的名称, broker在分组中的唯一标识
 }
 
 type LogConfig struct {
 	Writers []WriterConfig `mapstructure:"writers"`
 	Loggers []LoggerConfig `mapstructure:"loggers"`
+}
+
+type EtcdConfig struct {
+	Endpoints         []string `mapstructure:"endpoints"`
+	DialTimoutSeconds int      `mapstructure:"dialTimoutSeconds"`
 }
 
 type WriterConfig struct {

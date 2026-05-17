@@ -1,5 +1,10 @@
 server:
-  port: 8080
+  group: test
+  brokerName: test-broker
+  port: 6777
+etcd:
+  endpoints: ["localhost:2379"]
+  dialTimoutSeconds: 10
 log:
   writers:
     - id: app-default
