@@ -1,0 +1,36 @@
+@startuml BrokerGroup创建
+
+actor 管理员 as admin
+database 数据库集群
+== 数据库资源 ==
+admin -> 数据库集群++: 创建数据库物理资源 
+数据库集群 --> admin--: 数据库物理资源创建完成
+participant 消息队列管理系统 as mqadminsys
+admin -> mqadminsys++: 录入数据库资源信息
+database 消息队列元数据库 as admin_db 
+mqadminsys -> admin_db: 信息落库
+admin_db -->mqadminsys:
+mqadminsys --> admin--
+
+== broker资源 ==
+admin -> broker集群++: 发送broker机器创建请求, \n每个broker机器携带相同的broker_group标识
+broker集群 --> admin--:
+
+database etcd
+broker集群 -> etcd: 创建etcd租约,基于租约机制,\n每台broker机器将ip、端口信息写入etcd\nbroker宕机时,相关机器信息会因及时未续租而被删除
+etcd --> broker集群
+
+== topic创建 ==
+
+admin -> mqadminsys++: 携带broker_group,发送topic创建请求
+mqadminsys -> admin_db: 获取数据库资源信息
+admin_db --> mqadminsys:
+mqadminsys -> etcd: 获取broker_group下的所有broker信息
+etcd --> mqadminsys:
+mqadminsys -> mqadminsys: 计算db库数量, 有多少db就创建多少分区,\n每个分区各一个分组
+mqadminsys -> mqadminsys: 将分区平均分配给broker管理
+mqadminsys -> admin_db: 分配结果落库
+admin_db --> mqadminsys:
+mqadminsys -> 数据库集群: 执行DDL SQL, 创建消息分区表
+数据库集群 --> mqadminsys:
+mqadminsys --> admin: topic创建完成
