@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net"
 	"time"
+
+	"github.com/compassa/tomatomq/internal/broker/config"
 )
 
 type Server struct {
@@ -41,10 +43,10 @@ func (s *Server) Serve() {
 	for {
 		conn, err := s.Ln.Accept()
 		if err != nil {
-			AppLogger.Error("accept erorr", slog.Any("error", err))
+			config.AppLogger.Error("accept erorr", slog.Any("error", err))
 			return
 		}
-		AppLogger.Info("NewConnection",
+		config.AppLogger.Info("NewConnection",
 			slog.String("local", conn.LocalAddr().String()),
 			slog.String("remote", conn.RemoteAddr().String()))
 
@@ -78,10 +80,10 @@ func (s *Session) ReadLoop() {
 				if n > 0 {
 					handleNewBytes(buf[:n])
 				}
-				AppLogger.Info("client session closed", slog.String("remote", s.conn.RemoteAddr().String()))
+				config.AppLogger.Info("client session closed", slog.String("remote", s.conn.RemoteAddr().String()))
 				return
 			} else {
-				AppLogger.Error("cilent read error",
+				config.AppLogger.Error("cilent read error",
 					slog.String("remote", s.conn.RemoteAddr().String()),
 					slog.Any("error", err))
 				return
@@ -101,7 +103,7 @@ func (s *Session) WriteLoop() {
 		select {
 		case msg := <-s.Send:
 			if _, err := s.conn.Write(msg); err != nil {
-				AppLogger.Error("cilent write error",
+				config.AppLogger.Error("cilent write error",
 					slog.String("remote", s.conn.RemoteAddr().String()),
 					slog.Any("error", err))
 				return

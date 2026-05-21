@@ -1,0 +1,19 @@
+etcd:
+  endpoints: ["localhost:2379"]
+  dialTimoutSeconds: 10
+database:
+  dsn: "root:root@tcp(127.0.0.1:3306)/tomato_mq_admin?charset=utf8mb4&parseTime=True&loc=Local"
+  maxIdle: 2
+  maxOpen: 10
+  connMaxMinutes: 10
+log:
+  writers:
+    - id: app-default
+      type: STDOUT
+      level: INFO
+    - id: common-error
+      type: STDERR
+      level: ERROR
+  loggers:
+    - name: app-logger
+      writers: ["app-default", "common-error"]

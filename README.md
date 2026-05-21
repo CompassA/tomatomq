@@ -49,6 +49,7 @@ Server: 代表broker服务端
 
 
 # 本地启动
+1. 安装数据库  
 ```bash
 # 安装/启动etcd
 NODE1=127.0.0.1
@@ -76,7 +77,7 @@ db_root_dir=/root/download/mysqldata
 mkdir -p $db_root_dir/master/conf
 mkdir -p $db_root_dir/master/data
 
-podman run --name mysql-master -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root \
+podman run --name mysql-master -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root -e LANG=C.UTF-8\
 -v $db_root_dir/master/conf:/etc/mysql/conf.d                   \
 -v $db_root_dir/master/data:/var/lib/mysql                      \
 -d mysql:8.4.7
@@ -84,10 +85,5 @@ podman run --name mysql-master -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root \
 podman exec -it mysql-master bash
 ```
 
-# sql
-```sql
--- 消息库, 每个broker分组有几个broker就创建几个DB
-CREATE DATABASE tomato_broker_0;
-
--- 
-```
+2. 建库建表  
+[SQL明细](./docs/sql/)
