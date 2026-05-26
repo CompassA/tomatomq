@@ -2,6 +2,7 @@
  * @Author: Tomato
  * @Date: 2026-05-16 18:49:37
 -->
+
 # 项目简介
 
 fixme TOMATO todo
@@ -11,30 +12,53 @@ fixme TOMATO todo
 ## 架构设计
 
 ## 领域模型
+
 ![admin_model.svg](./docs/output/admin_model.svg "管理时领域模型")
 
-- **topic**:消息逻辑分组, 存放同种类型的消息  
-- **message_queue**: 消息分区, 一个topic可以有多个消息分区 
-- **broker**: 消息队列服务端, 负责处理消息收发网络请求  
-- **db**: 消息存储端, tomato底层使用数据库存储消息  
-- **broker_group**: 消息队列集群逻辑分组, topic的每个队列会绑定给相同分组的broker管理，队列的数据会存储在相同分组的db中  
-
+- **broker_group**: 消息队列集群逻辑分组, topic的每个队列会给相同分组的broker管理，队列数据会存储在相同分组的db中
+- **broker**: 消息队列服务端, 负责处理消息收发网络请求
+- **topic**: 消息的逻辑分组, 存放同种类型的消息
+- **message_queue**: 消息队列, 消息存储、顺序消息的原子单位, 一个topic可以有多个消息队列, 一个broker可以管理多个消息队列, 每个消息队列底层是db中的一张表
+- **db**: 消息存储端, tomato底层使用数据库存储消息
 
 ## 数据模型
+
 ![admin_data_model.svg](./docs/output/admin_data_model.svg "管理时数据模型")
 
+- **tomato_mq_db**: 数据库资源信息, 存储DB连接字符串、绑定的group分组等信息
+- **tomato_mq_topic**: 消息队列topic信息
+- **tomato_mq_mysql_queue**: topic底层队列的具体信息(消息存在哪个DB的哪个表、队列逻辑编号等)
+- **tomato_mq_broker_queue_relation**: 记录每个broker管理了哪些队列
+
 ## 集群管理整体流程
+
 ![集群操作](./docs/output/BrokerGroup创建.svg "集群操作")
 
-- 创建数据库资源
-- 创建broker实例
-- 创建topic
-- broker注册逻辑
-  - 使用etcd作为注册中心、存储topic的原数据与broker的机器信息。 
-  - 每个broker启动时, 将自己的机器信息写入ectd, 并创建一个etcd租约, 将etcd租约与写入的ip信息绑定。 
+数据库创建阶段:
+
+- 管理员在数据库集群创建数据库资源, 这些资源会用于存储消息
+- 在消息队列关系系统中录入数据库资源信息, 并为每个数据库打上broker_group标识, 每个数据库唯一归属于一个broker_group
+
+broker创建阶段:
+
+- 在broker集群创建broker实例
+- broker注册至etcd, broker注册逻辑
+  - 使用etcd作为注册中心、存储broker的ip、端口等机器信息
+  - 每个broker启动时, 将自己的机器信息写入ectd, 并创建一个etcd租约, 将etcd租约与写入的ip信息绑定
   - ectd写入格式:  
-  key:/broker/{broker分组}/{broker名称}   
-  value: ip:port
+    key:/broker/{broker分组}/{broker名称}  
+    value: ip:port
+
+创建topic:
+
+- 获取broker_group的DB资源数, topic队列数=DB资源数
+- 从etcd中获取到broker_group中活跃的broker信息, 将队列平均分配给每个broker
+- 分配信息保存在DB中
+
+broker与client:
+
+- broker启动时, 与消息队列管理系统通信, 获取队列分配信息
+- client启动后, 与消息队列管理系统定时通信, 获取topic信息与broker信息; 与broker定时通信, 上报存活状态
 
 # 通信层设计
 
@@ -47,9 +71,10 @@ Server: 代表broker服务端
 
 ## 协议层
 
-
 # 本地启动
-1. 安装数据库  
+
+1. 安装数据库
+
 ```bash
 # 安装/启动etcd
 NODE1=127.0.0.1
@@ -59,7 +84,7 @@ ETCD_VERSION=v3.6.11
 IMAGE_NAME=my_etcd
 
 setenforce 0
- 
+
 podman run -it -d -p 2379:2379 -p 2380:2380 \
   --user root \
   --volume=${DATA_DIR}:/etcd-data \
@@ -86,4 +111,4 @@ podman exec -it mysql-master bash
 ```
 
 2. 建库建表  
-[SQL明细](./docs/sql/)
+   [SQL明细](./docs/sql/)
