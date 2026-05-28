@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 
 	config "github.com/compassa/tomatomq/internal/broker/config"
 	tomatocfg "github.com/compassa/tomatomq/internal/pkg/config"
@@ -29,7 +28,7 @@ func StartReport(ctx context.Context, cfg *config.ServerConfig, cli *clientv3.Cl
 		slog.Int64("ttl", leaseResp.TTL))
 
 	// 写入broker信息
-	ip := os.Getenv(tomatocfg.AppBrokerEnvironmentVarPodIp)
+	ip := tomatocfg.FetchPodIp()
 	key := fmt.Sprintf("%s/%s/%s", tomatoconstant.ETCD_BROKER_PREFIX, cfg.Group, cfg.BrokerName)
 	value := fmt.Sprintf("%s:%d", ip, cfg.Port)
 	_, err = cli.Put(ctx, key, value, clientv3.WithLease(leaseResp.ID))

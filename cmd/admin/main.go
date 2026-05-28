@@ -5,14 +5,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/compassa/tomatomq/internal/admin/config"
+	"github.com/compassa/tomatomq/internal/admin/handler"
 	"github.com/compassa/tomatomq/internal/admin/mqadmin"
 	tomatocfg "github.com/compassa/tomatomq/internal/pkg/config"
+	"github.com/gin-gonic/gin"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -37,12 +37,25 @@ func main() {
 	sqldb.SetMaxIdleConns(cfg.Database.MaxIdleConns)
 	sqldb.SetMaxOpenConns(cfg.Database.MaxOpenConns)
 
-	adminRepo := mqadmin.NewRepo(db)
-
-	res := adminRepo.QueryById(1)
-
-	for _, r := range res {
-		v, _ := json.Marshal(r)
-		config.AppLogger.Info("test info", slog.Any("row", string(v)))
+	// 启动gin
+	if env == tomatocfg.AppBrokerEnvProd {
+		gin.SetMode(gin.ReleaseMode)
 	}
+
+	h := handler.NewHandler(mqadmin.NewService(mqadmin.NewRepo(db)))
+	router := gin.Default()
+	{
+		v1 := router.Group("/v1/mqadmin")
+		v1.POST("/database/register", func(g *gin.Context) {
+			h.DatabaseRegister(g)
+		})
+		v1.GET("/database/query", func(g *gin.Context) {
+			h.DatabaseQueryByGroup(g)
+		})
+
+		v1.POST("/topic/register", func(g *gin.Context) {
+		})
+	}
+
+	router.Run(tomatocfg.FetchPodIp() + ":8080")
 }

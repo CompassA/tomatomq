@@ -143,6 +143,10 @@ func FetchEnv() Env {
 	return Env(env)
 }
 
+func FetchPodIp() string {
+	return os.Getenv(AppBrokerEnvironmentVarPodIp)
+}
+
 func fetchLevel(l WriterLevel) zapcore.Level {
 	switch l {
 	case AppBrokerLoggerDebug:

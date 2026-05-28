@@ -71,6 +71,122 @@ Server: 代表broker服务端
 
 ## 协议层
 
+# admin-HTTP-API
+
+## POST /v1/mqadmin/database/register
+
+- 作用: 注册数据库资源
+- 请求头:
+- 请求体:
+  ```json
+  {
+    // 数据库资源所属的集群分组
+    "brokerGroup": "test",
+    // 数据库名称
+    "name": "tomato_mq_msg_0",
+    // 数据库账号
+    "user": "root",
+    // 数据库密码
+    "password": "root",
+    // 数据库域名
+    "host": "127.0.0.1",
+    // 数据库端口
+    "port": 3306
+  }
+  ```
+- 响应体:
+  - 请求成功:
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        // 主键
+        "id": 8,
+        // 唯一ID
+        "guid": "test:tomato_mq_msg_0",
+
+        // 连接字符串
+        "dsn": "root:root@tcp(127.0.0.1:3306)/tomato_mq_msg_0?charset=utf8mb4\u0026parseTime=True\u0026loc=Local",
+        "brokerGruop": "test",
+        "createdAt": "2026-05-28T23:36:34+08:00",
+        "updatedAt": "2026-05-28T23:36:34+08:00"
+      }
+    }
+    ```
+
+  - 请求失败:
+
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": 20002,
+        "message": "db insert failed"
+      }
+    }
+    ```
+
+- curl样例:
+
+  ```bash
+  curl --location --request POST 'http://localhost:8080/v1/mqadmin/database/register' \
+  --header 'Content-Type: application/json' \
+  --header 'Accept: */*' \
+  --header 'Host: localhost:8080' \
+  --header 'Connection: keep-alive' \
+  --data-raw '{
+    "brokerGroup": "test",
+    "name": "tomato_mq_msg_0",
+    "user": "root",
+    "password": "root",
+    "host": "127.0.0.1",
+    "port": 3306
+  }'
+  ```
+
+## GET /v1/mqadmin/database/query
+
+- 作用: 查询broker_group下的所有数据库资源
+- 请求头:
+- 请求参数:
+- 响应:
+- curl样例:
+  - 请求:
+
+  ```bash
+  curl -X GET http://localhost:8080/v1/mqadmin/database/query?group="test"
+
+  ```
+
+  - 响应
+
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 10,
+        "guid": "test:tomato_mq_msg_0",
+        "dsn": "root:root@tcp(127.0.0.1:3306)/tomato_mq_msg_0?charset=utf8mb4\u0026parseTime=True\u0026loc=Local",
+        "brokerGruop": "test",
+        "createdAt": "2026-05-28T23:40:17+08:00",
+        "updatedAt": "2026-05-28T23:40:17+08:00"
+      },
+      {
+        "id": 12,
+        "guid": "test:tomato_mq_msg_1",
+        "dsn": "root:root@tcp(127.0.0.1:3306)/tomato_mq_msg_1?charset=utf8mb4\u0026parseTime=True\u0026loc=Local",
+        "brokerGruop": "test",
+        "createdAt": "2026-05-28T23:46:24+08:00",
+        "updatedAt": "2026-05-28T23:46:24+08:00"
+      }
+    ]
+  }
+  ```
+
+````
+
 # 本地启动
 
 1. 安装数据库
@@ -108,7 +224,7 @@ podman run --name mysql-master -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root -e LANG=
 -d mysql:8.4.7
 
 podman exec -it mysql-master bash
-```
+````
 
 2. 建库建表  
-   [SQL明细](./docs/sql/)
+   [SQL明细](./docs/sql/localdb.sql)
