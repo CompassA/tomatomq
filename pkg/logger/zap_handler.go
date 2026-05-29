@@ -35,7 +35,7 @@ func NewZapHandler(cores []zapcore.Core) *ZapHandler {
 		core = zapcore.NewTee(cores...)
 	}
 
-	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	logger := zap.New(core, zap.AddCaller())
 
 	return &ZapHandler{
 		Logger: logger,

@@ -1,9 +1,9 @@
 /*
  * @Author: Tomato
  * @Date: 2026-05-27 23:16:31
- * @LastEditTime: 2026-05-28 00:34:03
+ * @LastEditTime: 2026-05-30 01:54:49
  */
-package handler
+package midware
 
 import (
 	"net/http"
@@ -18,16 +18,20 @@ type Response struct {
 	Error   *errors.ErrorInfo `json:"error,omitempty"`
 }
 
-func OK(c *gin.Context, data any) {
-	c.JSON(http.StatusOK, Response{
+func OK(c *gin.Context, data any) *Response {
+	body := Response{
 		Success: true,
 		Data:    data,
-	})
+	}
+	c.JSON(http.StatusOK, body)
+	return &body
 }
 
-func Fail(c *gin.Context, status int, err *errors.ErrorInfo) {
-	c.JSON(status, Response{
+func Fail(c *gin.Context, status int, err *errors.ErrorInfo) *Response {
+	body := Response{
 		Success: false,
 		Error:   err,
-	})
+	}
+	c.JSON(status, body)
+	return &body
 }

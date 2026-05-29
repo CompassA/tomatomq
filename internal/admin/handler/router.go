@@ -1,14 +1,13 @@
 /*
  * @Author: Tomato
  * @Date: 2026-05-27 23:09:19
- * @LastEditTime: 2026-05-28 23:34:28
+ * @LastEditTime: 2026-05-30 02:21:34
  */
 package handler
 
 import (
-	"net/http"
-
 	apperr "github.com/compassa/tomatomq/internal/admin/errors"
+	"github.com/compassa/tomatomq/internal/admin/midware"
 	"github.com/compassa/tomatomq/internal/admin/mqadmin"
 	"github.com/gin-gonic/gin"
 )
@@ -26,33 +25,39 @@ func NewHandler(adminsvc *mqadmin.Service) *Handler {
 func (h *Handler) DatabaseRegister(c *gin.Context) {
 	var req mqadmin.DatabaseRegisterReq
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
-		Fail(c, http.StatusBadRequest, apperr.NewError(apperr.PARAM_INVALID, err.Error()))
+		c.Error(apperr.NewError(apperr.ParamInvalid, err.Error()))
 		return
 	}
 
+	c.Set(midware.LogReqKey, req)
 	model, err := h.adminsvc.Register(req)
 	if err != nil {
-		Fail(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	OK(c, model)
+	body := midware.OK(c, model)
+
+	c.Set(midware.LogRespKey, body)
 }
 
 func (h *Handler) DatabaseQueryByGroup(c *gin.Context) {
 	brokerGroup := c.Query("group")
 	if len(brokerGroup) == 0 {
-		Fail(c, http.StatusBadRequest, apperr.NewError(apperr.PARAM_INVALID, "missing broker group"))
+		c.Error(apperr.NewError(apperr.ParamInvalid, "missing broker group"))
 		return
 	}
+	c.Set(midware.LogReqKey, brokerGroup)
 
 	res, err := h.adminsvc.QueryByBrokerGroup(brokerGroup)
 	if err != nil {
-		Fail(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	OK(c, res)
+	body := midware.OK(c, res)
+
+	c.Set(midware.LogRespKey, body)
 }
 
 func TopicRegister(c *gin.Context) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/compassa/tomatomq/internal/admin/config"
 	"github.com/compassa/tomatomq/internal/admin/handler"
+	"github.com/compassa/tomatomq/internal/admin/midware"
 	"github.com/compassa/tomatomq/internal/admin/mqadmin"
 	tomatocfg "github.com/compassa/tomatomq/internal/pkg/config"
 	"github.com/gin-gonic/gin"
@@ -44,6 +45,9 @@ func main() {
 
 	h := handler.NewHandler(mqadmin.NewService(mqadmin.NewRepo(db)))
 	router := gin.Default()
+	router.Use(midware.RequestUUIDHandler())
+	router.Use(midware.LogReqRespHandler())
+	router.Use(midware.ErrorHandler())
 	{
 		v1 := router.Group("/v1/mqadmin")
 		v1.POST("/database/register", func(g *gin.Context) {
