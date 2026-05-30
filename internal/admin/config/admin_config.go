@@ -16,7 +16,7 @@ import (
 var AppLogger *slog.Logger
 
 type Config struct {
-	Database tomatocfg.DBConfig   `mapstructure:"database"` // broker服务配置
+	Database tomatocfg.DBConfig   `mapstructure:"database"` // 数据库配置
 	Etcd     tomatocfg.EtcdConfig `mapstructure:"etcd"`     // etcd配置
 	Log      tomatocfg.LogConfig  `mapstructure:"log"`      // 日志配置
 }

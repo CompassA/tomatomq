@@ -1,8 +1,8 @@
 etcd:
-  endpoints: ["localhost:2379"]
+  endpoints: ["10.88.0.4:2379"]
   dialTimoutSeconds: 10
 database:
-  dsn: "root:root@tcp(127.0.0.1:3306)/tomato_mq_admin?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "root:root@tcp(10.88.0.5:3306)/tomato_mq_admin?charset=utf8mb4&parseTime=True&loc=Local"
   maxIdle: 2
   maxOpen: 10
   connMaxMinutes: 10

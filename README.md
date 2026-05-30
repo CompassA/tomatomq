@@ -211,7 +211,10 @@ podman run -it -d -p 2379:2379 -p 2380:2380 \
   --advertise-client-urls http://${NODE1}:2379 --listen-client-urls http://0.0.0.0:2379 \
   --initial-cluster node1=http://${NODE1}:2380
 
-podman exec ${IMAGE_NAME} etcdctl endpoint health
+# 查看ectd健康状态
+# podman exec my_etcd etcdctl endpoint health
+# 查看broker注册信息
+# podman exec my_etcd etcdctl get --prefix /broker
 
 # 安装/启动mysql
 db_root_dir=/root/download/mysqldata

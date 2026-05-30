@@ -1,6 +1,6 @@
 server:
-  group: test
-  brokerName: test-broker
+  group: test_podman
+  brokerName: test_podman-broker
   port: 6777
 etcd:
   endpoints: ["localhost:2379"]
