@@ -38,6 +38,9 @@ const (
 	AppBrokerLoggerDPanic WriterLevel = "DPANIC"
 	AppBrokerLoggerPanic  WriterLevel = "PANIC"
 	AppBrokerLoggerFatal  WriterLevel = "FATAL"
+
+	// broker配置文件, 读取二进制可执行文件同文件夹下的"broker-config.yaml"
+	AppBrokerConfigYaml = "broker-config.yaml"
 )
 
 type DBConfig struct {

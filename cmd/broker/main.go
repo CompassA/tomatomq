@@ -8,10 +8,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/compassa/tomatomq/internal/broker/config"
 	"github.com/compassa/tomatomq/internal/broker/meta"
+	server "github.com/compassa/tomatomq/internal/broker/server"
 
 	tomatocfg "github.com/compassa/tomatomq/internal/pkg/config"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -38,7 +40,13 @@ func main() {
 	// 元数据上报ectd
 	meta.StartReport(ctx, &cfg.Server, cli)
 
+	// 启动服务端监听
+	broker, err := server.NewServer("0.0.0.0:" + strconv.Itoa(cfg.Server.Port))
+	if err != nil {
+		panic(fmt.Errorf("server.NewServer: %w", err))
+	}
 	config.AppLogger.Info("broker started",
 		slog.String("group", cfg.Server.Group),
 		slog.String("brokerName", cfg.Server.BrokerName))
+	broker.Serve()
 }

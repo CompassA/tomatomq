@@ -28,8 +28,9 @@ type ServerConfig struct {
 }
 
 func LoadConfig(env tomatocfg.Env) *Config {
+	// 读取broker配置文件
 	v := viper.New()
-	v.SetConfigName("broker-" + string(env) + ".yaml")
+	v.SetConfigName(tomatocfg.AppBrokerConfigYaml)
 	v.SetConfigType("yaml")
 	v.AddConfigPath("../../config") // 配置文件目录
 	v.AddConfigPath(".")            // 兼容不同运行目录

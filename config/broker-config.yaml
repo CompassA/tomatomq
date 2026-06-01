@@ -1,11 +1,10 @@
+server:
+  group: test
+  brokerName: test_local-broker
+  port: 6777
 etcd:
-  endpoints: ["192.168.112.130:2379"]
+  endpoints: ["localhost:2379"]
   dialTimoutSeconds: 10
-database:
-  dsn: "root:root@tcp(192.168.112.130:3306)/tomato_mq_admin?charset=utf8mb4&parseTime=True&loc=Local"
-  maxIdle: 2
-  maxOpen: 10
-  connMaxMinutes: 10
 log:
   writers:
     - id: app-default

@@ -1,9 +1,8 @@
 # 构建镜像
-# podman build -t compassa/tomatomq-admin:1.0.0-dev  -f ./mqadmin-dev.Dockerfile .
+# podman build -t compassa/tomatomq-admin:1.0.0-dev  -f ./mqadmin.Dockerfile .
 
 # 查看本地etcd、mysql容器的ip信息
 # podman inspect --format='{{.NetworkSettings.IPAddress}}' [容器id]
-# 将相关信息写入admin-dev.yaml配置文件中
 
 # 启动容器
 # podman run -e APP_ENV=dev -d compassa/tomatomq-admin:1.0.0-dev
@@ -20,8 +19,9 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o mq
 
 
 FROM scratch
+ARG CONFIG_FILE_NAME=admin-dev.yaml
 WORKDIR /
 COPY --from=builder /workspace/mqadmin .
-COPY --from=builder /workspace/config/admin-dev.yaml .
+COPY --from=builder /workspace/config/$CONFIG_FILE_NAME .
 EXPOSE 8080 8090
 ENTRYPOINT ["/mqadmin"]

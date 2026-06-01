@@ -1,9 +1,10 @@
+# 容器测试 brokek B的配置文件
 server:
   group: test_podman
-  brokerName: test_podman-broker
-  port: 6777
+  brokerName: test_podman-broker-b
+  port: 6779
 etcd:
-  endpoints: ["localhost:2379"]
+  endpoints: ["192.168.112.130:2379"]
   dialTimoutSeconds: 10
 log:
   writers:

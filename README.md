@@ -185,9 +185,7 @@ Server: 代表broker服务端
   }
   ```
 
-````
-
-# 本地启动
+# 通过podman本地启动
 
 1. 安装数据库
 
@@ -227,7 +225,37 @@ podman run --name mysql-master -p 3306:3306 -e MYSQL_ROOT_PASSWORD=root -e LANG=
 -d mysql:8.4.7
 
 podman exec -it mysql-master bash
-````
+```
 
-2. 建库建表  
-   [SQL明细](./docs/sql/localdb.sql)
+2. 建库建表
+   在步骤一创建的mysql容器中建库建表，[SQL明细](./docs/sql/localdb.sql)。
+3. 配置机器IP
+   将自己的机器ip配置为固定的ipv4地址。  
+   配置完成后, 在[admin本地配置文件]()中, 将etcd.endpoints与database.dsn中的ip换成自己本机的ipv4地址，  
+   在[broker-a配置文件]()、[broker-b配置文件]()中, 将etcd.endpoints中的ip换成自己本机的ipv4地址。
+4. 构建broker与admin镜像
+
+```bash
+# cd 项目根目录
+# set host_ip=本机固定ipv4ip
+podman build -t compassa/tomatomq-admin:1.0.0-dev  -f ./mqadmin.Dockerfile .
+podman run -e APP_ENV=dev -p 6778:6778 -e POD_IP=$host_ip -d compassa/tomatomq-broker-a:1.0.0-dev
+podman run -e APP_ENV=dev -p 6779:6779 -e POD_IP=$host_ip -d compassa/tomatomq-broker-b:1.0.0-dev
+```
+
+5. 启动broker与admin容器
+
+```bash
+# host_ip=本机固定ipv4ip
+
+podman run -e APP_ENV=dev -d compassa/tomatomq-admin:1.0.0-dev
+
+podman run -e APP_ENV=dev -p 6778:6778 -e POD_IP=$host_ip -d compassa/tomatomq-broker-a:1.0.0-dev
+podman run -e APP_ENV=dev -p 6779:6779 -e POD_IP=$host_ip -d compassa/tomatomq-broker-b:1.0.0-dev
+
+# 启动完成后, 查询etcd中的broker注册情况
+# container_name=my_etcd
+# podman exec $container_name etcdctl get --prefix /broker   查看注册信息
+```
+
+至此, 在单机启动了1个mysql容器、1个etcd容器、1个mqadmin容器与2个broker容器, 本地实验环境搭建完成

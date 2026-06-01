@@ -1,11 +1,11 @@
+# 容器测试 brokek A的配置文件
+server:
+  group: test_podman
+  brokerName: test_podman-broker-a
+  port: 6778
 etcd:
   endpoints: ["192.168.112.130:2379"]
   dialTimoutSeconds: 10
-database:
-  dsn: "root:root@tcp(192.168.112.130:3306)/tomato_mq_admin?charset=utf8mb4&parseTime=True&loc=Local"
-  maxIdle: 2
-  maxOpen: 10
-  connMaxMinutes: 10
 log:
   writers:
     - id: app-default
