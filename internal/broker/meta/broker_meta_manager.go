@@ -10,8 +10,8 @@ import (
 	"log/slog"
 
 	config "github.com/compassa/tomatomq/internal/broker/config"
+	brokerutil "github.com/compassa/tomatomq/internal/pkg/broker"
 	tomatocfg "github.com/compassa/tomatomq/internal/pkg/config"
-	tomatoconstant "github.com/compassa/tomatomq/internal/pkg/constant"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -30,8 +30,9 @@ func StartReport(ctx context.Context, cfg *config.ServerConfig, cli *clientv3.Cl
 	// 写入broker信息
 	ip := tomatocfg.FetchPodIp()
 	config.AppLogger.Info("fetch ip success", slog.String("ip", ip))
-	key := fmt.Sprintf("%s/%s/%s", tomatoconstant.ETCD_BROKER_PREFIX, cfg.Group, cfg.BrokerName)
-	value := fmt.Sprintf("%s:%d", ip, cfg.Port)
+
+	key := brokerutil.BuildEctdKey(cfg.Group, cfg.BrokerName)
+	value := brokerutil.BuildEctdValue(ip, cfg.Port)
 	_, err = cli.Put(ctx, key, value, clientv3.WithLease(leaseResp.ID))
 	if err != nil {
 		panic(fmt.Errorf("regiter broker meta failed: %w", err))

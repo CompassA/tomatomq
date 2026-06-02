@@ -5,27 +5,63 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/compassa/tomatomq/internal/admin/config"
 	"github.com/compassa/tomatomq/internal/admin/handler"
+	"github.com/compassa/tomatomq/internal/admin/meta"
 	"github.com/compassa/tomatomq/internal/admin/midware"
 	"github.com/compassa/tomatomq/internal/admin/mqadmin"
 	tomatocfg "github.com/compassa/tomatomq/internal/pkg/config"
 	"github.com/gin-gonic/gin"
+	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
 func main() {
+	ctx, cancel := context.WithCancel((context.Background()))
+	defer cancel()
+
 	// 加载配置
 	env := tomatocfg.FetchEnv()
 	cfg := config.LoadConfig(env)
 	defer config.SyncLogger()
 
 	// 初始化DB client
+	db := initDBClient(cfg)
+	config.AppLogger.Info("init DB client success")
+
+	// 初始化etcd client
+	initEtcd(ctx, cfg)
+	config.AppLogger.Info("init etcd client success")
+
+	// 启动gin
+	startGin(env, db)
+}
+
+func initEtcd(ctx context.Context, cfg *config.Config) *meta.BrokerCacheRepo {
+	cli, err := clientv3.New(clientv3.Config{
+		Endpoints:   cfg.Etcd.Endpoints,
+		DialTimeout: time.Duration(cfg.Etcd.DialTimoutSeconds) * time.Second,
+	})
+	if err != nil {
+		panic(fmt.Errorf("failed to connect to ectd: %w", err))
+	}
+
+	metaRepo := meta.NewRepo(cli)
+
+	err = metaRepo.StartWatch(ctx)
+	if err != nil {
+		panic(fmt.Errorf("BrokerCacheRepo#StartWatch: %w", err))
+	}
+	return metaRepo
+}
+
+func initDBClient(cfg *config.Config) *gorm.DB {
 	db, err := gorm.Open(mysql.Open(cfg.Database.Dsn), &gorm.Config{})
 	if err != nil {
 		panic(fmt.Errorf("open mysql failed: %w", err))
@@ -37,8 +73,10 @@ func main() {
 	sqldb.SetConnMaxIdleTime(time.Duration(cfg.Database.ConnMaxLifeMinutes) * time.Minute)
 	sqldb.SetMaxIdleConns(cfg.Database.MaxIdleConns)
 	sqldb.SetMaxOpenConns(cfg.Database.MaxOpenConns)
+	return db
+}
 
-	// 启动gin
+func startGin(env tomatocfg.Env, db *gorm.DB) {
 	if env == tomatocfg.AppBrokerEnvProd {
 		gin.SetMode(gin.ReleaseMode)
 	}
