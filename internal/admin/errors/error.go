@@ -1,7 +1,7 @@
 /*
  * @Author: Tomato
  * @Date: 2026-05-28 00:33:06
- * @LastEditTime: 2026-05-30 02:25:21
+ * @LastEditTime: 2026-06-14 22:25:41
  */
 package errors
 
@@ -33,7 +33,7 @@ func (e *ErrorInfo) Unwrap() error {
 	if e.Err != nil {
 		return e.Err
 	}
-	return e
+	return nil
 }
 
 func NewError(code ErrCode, msg string) *ErrorInfo {

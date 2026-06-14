@@ -36,11 +36,11 @@ func main() {
 	config.AppLogger.Info("init DB client success")
 
 	// 初始化etcd client
-	initEtcd(ctx, cfg)
+	etcdRepo := initEtcd(ctx, cfg)
 	config.AppLogger.Info("init etcd client success")
 
 	// 启动gin
-	startGin(env, db)
+	startGin(env, db, etcdRepo)
 }
 
 func initEtcd(ctx context.Context, cfg *config.Config) *meta.BrokerCacheRepo {
@@ -76,12 +76,12 @@ func initDBClient(cfg *config.Config) *gorm.DB {
 	return db
 }
 
-func startGin(env tomatocfg.Env, db *gorm.DB) {
+func startGin(env tomatocfg.Env, db *gorm.DB, etcdRepo *meta.BrokerCacheRepo) {
 	if env == tomatocfg.AppBrokerEnvProd {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	h := handler.NewHandler(mqadmin.NewService(mqadmin.NewRepo(db)))
+	h := handler.NewHandler(mqadmin.NewService(mqadmin.NewRepo(db), etcdRepo))
 	router := gin.Default()
 	router.Use(midware.RequestUUIDHandler())
 	router.Use(midware.LogReqRespHandler())
@@ -94,8 +94,8 @@ func startGin(env tomatocfg.Env, db *gorm.DB) {
 		v1.GET("/database/query", func(g *gin.Context) {
 			h.DatabaseQueryByGroup(g)
 		})
-
 		v1.POST("/topic/register", func(g *gin.Context) {
+			h.TopicRegister(g)
 		})
 	}
 

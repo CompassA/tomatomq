@@ -15,11 +15,11 @@ fixme TOMATO todo
 
 ![admin_model.svg](./docs/output/admin_model.svg "管理时领域模型")
 
-- **broker_group**: 消息队列集群逻辑分组, topic的每个队列会给相同分组的broker管理，队列数据会存储在相同分组的db中
-- **broker**: 消息队列服务端, 负责处理消息收发网络请求
-- **topic**: 消息的逻辑分组, 存放同种类型的消息
-- **message_queue**: 消息队列, 消息存储、顺序消息的原子单位, 一个topic可以有多个消息队列, 一个broker可以管理多个消息队列, 每个消息队列底层是db中的一张表
-- **db**: 消息存储端, tomato底层使用数据库存储消息
+- **BrokerGroup**: 消息队列集群逻辑分组, 每个分组有三种资源: Topic、Broker、DB
+- **Broker**: 消息队列服务端, 负责处理消息收发网络请求
+- **Topic**: 消息的逻辑分组, 存放同种类型的消息
+- **DB**: 消息存储端, tomatomq底层使用数据库存储消息
+- **MessageQueue**: 消息队列, 消息存储、顺序消息的原子单位, 一个Topic可以有多个消息队列, 一个Broker可以管理多个消息队列, 每个消息队列底层是DB中的一张表
 
 ## 数据模型
 
@@ -44,8 +44,8 @@ broker创建阶段:
 - 在broker集群创建broker实例
 - broker注册至etcd, broker注册逻辑
   - 使用etcd作为注册中心、存储broker的ip、端口等机器信息
-  - 每个broker启动时, 将自己的机器信息写入ectd, 并创建一个etcd租约, 将etcd租约与写入的ip信息绑定
-  - ectd写入格式:  
+  - 每个broker启动时, 将自己的机器信息写入etcd, 并创建一个etcd租约, 将etcd租约与写入的ip信息绑定
+  - etcd写入格式:  
     key:/broker/{broker分组}/{broker名称}  
     value: ip:port
 
@@ -78,22 +78,18 @@ Server: 代表broker服务端
 - 作用: 注册数据库资源
 - 请求头:
 - 请求体:
+
   ```json
   {
-    // 数据库资源所属的集群分组
-    "brokerGroup": "test",
-    // 数据库名称
-    "name": "tomato_mq_msg_0",
-    // 数据库账号
-    "user": "root",
-    // 数据库密码
-    "password": "root",
-    // 数据库域名
-    "host": "127.0.0.1",
-    // 数据库端口
-    "port": 3306
+    "brokerGroup": "test", // 数据库资源所属的集群分组
+    "name": "tomato_mq_msg_0", // 数据库名称
+    "user": "root", // 数据库账号
+    "password": "root", // 数据库密码
+    "host": "127.0.0.1", // 数据库域名
+    "port": 3306 // 数据库端口
   }
   ```
+
 - 响应体:
   - 请求成功:
 
@@ -101,13 +97,9 @@ Server: 代表broker服务端
     {
       "success": true,
       "data": {
-        // 主键
-        "id": 8,
-        // 唯一ID
-        "guid": "test:tomato_mq_msg_0",
-
-        // 连接字符串
-        "dsn": "root:root@tcp(127.0.0.1:3306)/tomato_mq_msg_0?charset=utf8mb4\u0026parseTime=True\u0026loc=Local",
+        "id": 8, // 主键
+        "guid": "test:tomato_mq_msg_0", // 唯一ID
+        "dsn": "root:root@tcp(127.0.0.1:3306)/tomato_mq_msg_0?charset=utf8mb4\u0026parseTime=True\u0026loc=Local", // 连接字符串
         "brokerGruop": "test",
         "createdAt": "2026-05-28T23:36:34+08:00",
         "updatedAt": "2026-05-28T23:36:34+08:00"
@@ -142,6 +134,100 @@ Server: 代表broker服务端
     "password": "root",
     "host": "127.0.0.1",
     "port": 3306
+  }'
+  ```
+
+## POST /v1/mqadmin/topic/register
+
+- 作用: 创建topic
+- 请求头:
+- 请求体:
+
+  ```json
+  {
+    "topicName": "inner_topic", // 创建的topic名称
+    "brokerGroup": "test_podman", // topic所属的资源分组
+    "type": 1, // topic消息类型。 1:普通消息; 2:顺序消息; 3:事务消息; 4:定时消息
+    "mode": 1 // 创建模式。 1:普通模式, 每个Broker可管理一个topic的一个分区;2:严格模式, 每个Broker仅可管理Topic的一个分区, 当broker数量少于Topic分区数量时, Topic无法创建
+  }
+  ```
+
+- 响应体:
+
+  ```json
+  {
+    "success": true,
+    "data": {
+      // 创建的topic
+      "topic": {
+        "id": 18,
+        "name": "inner_topic",
+        "brokerGroup": "test_podman",
+        "type": 1,
+        "queueNum": 2,
+        "status": "",
+        "createdAt": "2026-06-15T00:18:17+08:00",
+        "updatedAt": "2026-06-15T00:18:17+08:00"
+      },
+      // topic底层的队列
+      "queues": [
+        {
+          "id": 49,
+          "topicId": 18,
+          "index": 0,
+          "dbID": 39,
+          "tableName": "test_podman_inner_topic_0",
+          "status": "",
+          "createdAt": "2026-06-15T00:18:17+08:00",
+          "updatedAt": "2026-06-15T00:18:17+08:00"
+        },
+        {
+          "id": 50,
+          "topicId": 18,
+          "index": 1,
+          "dbID": 40,
+          "tableName": "test_podman_inner_topic_1",
+          "status": "",
+          "createdAt": "2026-06-15T00:18:17+08:00",
+          "updatedAt": "2026-06-15T00:18:17+08:00"
+        }
+      ],
+      // 队列与broker的绑定关系
+      "relations": [
+        {
+          "id": 49,
+          "brokerGroup": "test_podman",
+          "brokerName": "test_podman-broker-a",
+          "queueId": 49,
+          "createdAt": "2026-06-15T00:18:17+08:00",
+          "updatedAt": "2026-06-15T00:18:17+08:00"
+        },
+        {
+          "id": 50,
+          "brokerGroup": "test_podman",
+          "brokerName": "test_podman-broker-b",
+          "queueId": 50,
+          "createdAt": "2026-06-15T00:18:17+08:00",
+          "updatedAt": "2026-06-15T00:18:17+08:00"
+        }
+      ]
+    }
+  }
+  ```
+
+- curl样例:
+
+  ```bash
+  curl --location --request POST 'http://localhost:8080/v1/mqadmin/topic/register' \
+  --header 'Content-Type: application/json' \
+  --header 'Accept: */*' \
+  --header 'Host: localhost:8080' \
+  --header 'Connection: keep-alive' \
+  --data-raw '{
+    "topicName": "test_topic",
+    "brokerGroup": "test_podman",
+    "type": 1,
+    "mode": 1
   }'
   ```
 
@@ -209,7 +295,7 @@ podman run -it -d -p 2379:2379 -p 2380:2380 \
   --advertise-client-urls http://${NODE1}:2379 --listen-client-urls http://0.0.0.0:2379 \
   --initial-cluster node1=http://${NODE1}:2380
 
-# 查看ectd健康状态
+# 查看etcd健康状态
 # podman exec my_etcd etcdctl endpoint health
 # 查看broker注册信息
 # podman exec my_etcd etcdctl get --prefix /broker

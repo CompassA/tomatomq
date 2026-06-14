@@ -1,7 +1,7 @@
 /*
  * @Author: Tomato
  * @Date: 2026-06-02 23:01:13
- * @LastEditTime: 2026-06-03 00:39:19
+ * @LastEditTime: 2026-06-14 18:21:06
  */
 package meta
 
@@ -33,6 +33,16 @@ func NewRepo(cli *clientv3.Client) *BrokerCacheRepo {
 	return &BrokerCacheRepo{
 		cli: cli,
 	}
+}
+
+func (r *BrokerCacheRepo) GetBrokerByGroup(brokerGroup string) []*BrokerMeta {
+	cache := r.loadCache()
+
+	res, ok := cache[brokerGroup]
+	if !ok {
+		return []*BrokerMeta{}
+	}
+	return res
 }
 
 func (r *BrokerCacheRepo) StartWatch(ctx context.Context) error {
