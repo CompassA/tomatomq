@@ -11,9 +11,20 @@ log:
     - id: app-default
       type: STDOUT
       level: INFO
+    - id: etcd-biz
+      type: STDOUT
+      level: INFO
+    - id: server-biz
+      type: STDOUT
+      level: INFO
     - id: common-error
       type: STDERR
       level: ERROR
   loggers:
     - name: app-logger
       writers: ["app-default", "common-error"]
+    - name: etcd-logger
+      writers: ["etcd-biz", "common-error"]
+    - name: server-logger
+      writers: ["server-biz", "common-error"]
+  defaultLoggerName: app-logger

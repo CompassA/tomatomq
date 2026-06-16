@@ -6,14 +6,11 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 
 	"github.com/spf13/viper"
 
 	tomatocfg "github.com/compassa/tomatomq/internal/pkg/config"
 )
-
-var AppLogger *slog.Logger
 
 type Config struct {
 	Server ServerConfig         `mapstructure:"server"` // broker服务配置
@@ -44,14 +41,5 @@ func LoadConfig(env tomatocfg.Env) *Config {
 	if err := v.Unmarshal(&cfg); err != nil {
 		panic(fmt.Errorf("unmarshal broker config failed, %w", err))
 	}
-
-	// 初始化日志
-	loggerMap := tomatocfg.LoadLogger(env, cfg.Log)
-	AppLogger = tomatocfg.FetchLogger("app-logger", env, loggerMap)
-
 	return &cfg
-}
-
-func SyncLogger() {
-	tomatocfg.SyncLogger([]*slog.Logger{AppLogger})
 }

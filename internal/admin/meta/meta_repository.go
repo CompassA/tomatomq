@@ -1,7 +1,7 @@
 /*
  * @Author: Tomato
  * @Date: 2026-06-02 23:01:13
- * @LastEditTime: 2026-06-14 18:21:06
+ * @LastEditTime: 2026-06-17 00:26:39
  */
 package meta
 
@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	tomatocfg "github.com/compassa/tomatomq/internal/admin/config"
 	brokerutil "github.com/compassa/tomatomq/internal/pkg/broker"
 	tomatoconstant "github.com/compassa/tomatomq/internal/pkg/constant"
+	"github.com/compassa/tomatomq/pkg/tomatolog"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -47,7 +47,7 @@ func (r *BrokerCacheRepo) GetBrokerByGroup(brokerGroup string) []*BrokerMeta {
 
 func (r *BrokerCacheRepo) StartWatch(ctx context.Context) error {
 	// 全量获取broker信息
-	resp, err := r.cli.Get(ctx, tomatoconstant.ETCD_BROKER_PREFIX, clientv3.WithPrefix())
+	resp, err := r.cli.Get(ctx, tomatoconstant.EtcdBrokerPrefix, clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -75,11 +75,15 @@ func (r *BrokerCacheRepo) StartWatch(ctx context.Context) error {
 }
 
 func (r *BrokerCacheRepo) watchLoop(ctx context.Context) {
+	// 日志模块
+	rootLogger := slog.Default()
+	c := context.WithValue(ctx, tomatolog.LoggerNameKey, tomatoconstant.EtcdLogger)
+
 	// 外层循环, 处理watch重连
 	for {
 		// 注册watch,
-		ch := r.cli.Watch(ctx, tomatoconstant.ETCD_BROKER_PREFIX, clientv3.WithPrefix(), clientv3.WithProgressNotify())
-		tomatocfg.AppLogger.Info("broker watch registered")
+		ch := r.cli.Watch(c, tomatoconstant.EtcdBrokerPrefix, clientv3.WithPrefix(), clientv3.WithProgressNotify())
+		rootLogger.InfoContext(c, "broker watch registered")
 
 	inner:
 		// 内层循环, 消费watch
@@ -87,33 +91,33 @@ func (r *BrokerCacheRepo) watchLoop(ctx context.Context) {
 			select {
 			// 程序退出
 			case <-ctx.Done():
-				tomatocfg.AppLogger.Info("stop broker watch loop")
+				rootLogger.InfoContext(c, "stop broker watch loop")
 				return
 			// 长时间没收到响应, 启动重连
 			case <-time.After(15 * time.Minute):
-				tomatocfg.AppLogger.Warn("no progress notify, try to reconnect")
+				rootLogger.WarnContext(c, "no progress notify, try to reconnect")
 				break inner
 			case watch, ok := <-ch:
 				// 通道关闭, 尝试重连
 				if !ok {
-					tomatocfg.AppLogger.Warn("watch channel closed, try to reconnect")
+					rootLogger.WarnContext(c, "watch channel closed, try to reconnect")
 					break inner
 				}
 
 				// etcd服务端变更, 尝试重连
 				if watch.Canceled {
-					tomatocfg.AppLogger.Warn("watch canceled, try to reconnect")
+					rootLogger.WarnContext(c, "watch canceled, try to reconnect")
 					break inner
 				}
 
 				// 服务端心跳推送, 忽略
 				if watch.IsProgressNotify() {
-					tomatocfg.AppLogger.Info("receive watch progress notify")
+					rootLogger.InfoContext(c, "receive watch progress notify")
 					continue
 				}
 
 				// 消费变更
-				r.applyEvents(watch.Events)
+				r.applyEvents(c, watch.Events)
 			}
 		}
 
@@ -121,7 +125,9 @@ func (r *BrokerCacheRepo) watchLoop(ctx context.Context) {
 	}
 }
 
-func (r *BrokerCacheRepo) applyEvents(events []*clientv3.Event) {
+func (r *BrokerCacheRepo) applyEvents(ctx context.Context, events []*clientv3.Event) {
+	rootLogger := slog.Default()
+
 	// 拷贝缓存
 	cache := r.loadCache()
 	newCache := make(map[string][]*BrokerMeta, len(cache))
@@ -136,7 +142,7 @@ func (r *BrokerCacheRepo) applyEvents(events []*clientv3.Event) {
 		k := string(event.Kv.Key)
 		v := string(event.Kv.Value)
 		t := event.Type
-		tomatocfg.AppLogger.Info("receive watch event",
+		rootLogger.InfoContext(ctx, "receive watch event",
 			slog.String("key", k),
 			slog.String("value", v),
 			slog.String("type", t.String()))
@@ -174,7 +180,7 @@ func (r *BrokerCacheRepo) applyEvents(events []*clientv3.Event) {
 			}
 		case mvccpb.DELETE:
 			if !has {
-				tomatocfg.AppLogger.Warn("broker group not exist in the cache", slog.String("brokerGroup", group))
+				rootLogger.WarnContext(ctx, "broker group not exist in the cache", slog.String("brokerGroup", group))
 				continue
 			}
 			pos := -1

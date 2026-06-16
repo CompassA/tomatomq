@@ -9,11 +9,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/compassa/tomatomq/pkg/logger"
+	"github.com/compassa/tomatomq/pkg/tomatolog"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
-	toamtolog "github.com/compassa/tomatomq/pkg/logger"
 )
 
 const (
@@ -56,8 +54,9 @@ type EtcdConfig struct {
 }
 
 type LogConfig struct {
-	Writers []WriterConfig `mapstructure:"writers"`
-	Loggers []LoggerConfig `mapstructure:"loggers"`
+	Writers           []WriterConfig `mapstructure:"writers"`           // 日志文件配置
+	Loggers           []LoggerConfig `mapstructure:"loggers"`           // 日志实例配置, 一个日志实例组合多个日志文件
+	DefaultLoggerName string         `mapstructure:"defaultLoggerName"` // 默认的日志实例
 }
 
 type WriterConfig struct {
@@ -81,27 +80,29 @@ type (
 	Env         string
 )
 
-func LoadLogger(env Env, logcfg LogConfig) map[string]*slog.Logger {
+func LoadLogger(env Env, logcfg *LogConfig) *slog.Logger {
 	if len(logcfg.Loggers) == 0 || len(logcfg.Writers) == 0 {
 		panic("logger config empty")
 	}
 
+	// 日志文件配置
 	writerMap := map[string]zapcore.Core{}
 	for _, writercfg := range logcfg.Writers {
 		level := fetchLevel(writercfg.Level)
 		var core zapcore.Core
 		switch writercfg.Type {
 		case AppBrokerWriterFileType:
-			core = logger.NewZapCore(*writercfg.Path, *writercfg.MaxSize, *writercfg.MaxBackups, *writercfg.MaxAge, level)
+			core = tomatolog.NewZapCore(*writercfg.Path, *writercfg.MaxSize, *writercfg.MaxBackups, *writercfg.MaxAge, level)
 		case AppBrokerWriterStdoutType:
-			core = logger.NewStdoutCore(level)
+			core = tomatolog.NewStdoutCore(level)
 		case AppBrokerWriterStderrType:
-			core = logger.NewStderrCore(level)
+			core = tomatolog.NewStderrCore(level)
 		}
 		writerMap[writercfg.Id] = core
 	}
 
-	loggerMap := map[string]*slog.Logger{}
+	// 不同业务模块组合日志文件
+	loggerMap := map[string]*zap.Logger{}
 	for _, loggercfg := range logcfg.Loggers {
 		cores := []zapcore.Core{}
 		if len(loggercfg.Writers) == 0 {
@@ -114,28 +115,13 @@ func LoadLogger(env Env, logcfg LogConfig) map[string]*slog.Logger {
 			}
 			cores = append(cores, core)
 		}
-		loggerMap[loggercfg.Name] = slog.New(logger.NewZapHandler(cores))
-	}
-	return loggerMap
-}
-
-func SyncLogger(loggers []*slog.Logger) {
-	for _, logger := range loggers {
-		logger.Handler().(*toamtolog.ZapHandler).Logger.Sync()
-	}
-}
-
-func FetchLogger(name string, env Env, loggerMap map[string]*slog.Logger) *slog.Logger {
-	logger, ok := loggerMap[name]
-	if ok {
-		return logger
+		loggerMap[loggercfg.Name] = tomatolog.NewZapLogger(cores)
 	}
 
-	if env != AppBrokerEnvProd {
-		return slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	}
-
-	panic(fmt.Errorf("logger %s not configured", name))
+	// 构造rootLogger
+	rootLogger := slog.New(tomatolog.NewZapHandler(loggerMap, logcfg.DefaultLoggerName))
+	slog.SetDefault(rootLogger)
+	return rootLogger
 }
 
 func FetchEnv() Env {

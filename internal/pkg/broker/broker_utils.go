@@ -13,7 +13,7 @@ import (
 )
 
 func BuildEctdKey(brokerGroup, brokerName string) string {
-	return fmt.Sprintf("%s/%s/%s", constant.ETCD_BROKER_PREFIX, brokerGroup, brokerName)
+	return fmt.Sprintf("%s/%s/%s", constant.EtcdBrokerPrefix, brokerGroup, brokerName)
 }
 
 func BuildEctdValue(ip string, port int) string {

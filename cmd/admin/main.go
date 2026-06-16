@@ -29,15 +29,17 @@ func main() {
 	// 加载配置
 	env := tomatocfg.FetchEnv()
 	cfg := config.LoadConfig(env)
-	defer config.SyncLogger()
+
+	// 初始化日志
+	rootLogger := tomatocfg.LoadLogger(env, &cfg.Log)
 
 	// 初始化DB client
 	db := initDBClient(cfg)
-	config.AppLogger.Info("init DB client success")
+	rootLogger.Info("init DB client success")
 
 	// 初始化etcd client
 	etcdRepo := initEtcd(ctx, cfg)
-	config.AppLogger.Info("init etcd client success")
+	rootLogger.Info("init etcd client success")
 
 	// 启动gin
 	startGin(env, db, etcdRepo)

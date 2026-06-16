@@ -7,13 +7,10 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 
 	tomatocfg "github.com/compassa/tomatomq/internal/pkg/config"
 	"github.com/spf13/viper"
 )
-
-var AppLogger *slog.Logger
 
 type Config struct {
 	Database tomatocfg.DBConfig   `mapstructure:"database"` // 数据库配置
@@ -37,13 +34,5 @@ func LoadConfig(env tomatocfg.Env) *Config {
 	if err := v.Unmarshal(&cfg); err != nil {
 		panic(fmt.Errorf("unmarshal admin config failed, %w", err))
 	}
-
-	loggerMap := tomatocfg.LoadLogger(env, cfg.Log)
-	AppLogger = tomatocfg.FetchLogger("app-logger", env, loggerMap)
-
 	return &cfg
-}
-
-func SyncLogger() {
-	tomatocfg.SyncLogger([]*slog.Logger{AppLogger})
 }

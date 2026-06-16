@@ -5,12 +5,14 @@
 package broker
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net"
 	"time"
 
-	"github.com/compassa/tomatomq/internal/broker/config"
+	"github.com/compassa/tomatomq/internal/pkg/constant"
+	"github.com/compassa/tomatomq/pkg/tomatolog"
 )
 
 type Server struct {
@@ -40,20 +42,23 @@ func NewServer(listenAddr string) (*Server, error) {
 }
 
 func (s *Server) Serve() {
+	c := context.WithValue(context.Background(), tomatolog.LoggerNameKey, constant.ServerLogger)
+	logger := slog.Default()
+
 	for {
 		conn, err := s.Ln.Accept()
 		if err != nil {
-			config.AppLogger.Error("accept erorr", slog.Any("error", err))
+			logger.ErrorContext(c, "accept erorr", slog.Any("error", err))
 			return
 		}
-		config.AppLogger.Info("NewConnection",
+		logger.InfoContext(c, "NewConnection",
 			slog.String("local", conn.LocalAddr().String()),
 			slog.String("remote", conn.RemoteAddr().String()))
 
 		session := NewSession(conn, 128)
 		s.Sessions = append(s.Sessions, *session)
-		go session.ReadLoop()
-		go session.WriteLoop()
+		go session.ReadLoop(c)
+		go session.WriteLoop(c)
 	}
 }
 
@@ -66,10 +71,11 @@ func NewSession(conn net.Conn, sendChanSize int) *Session {
 	}
 }
 
-func (s *Session) ReadLoop() {
+func (s *Session) ReadLoop(ctx context.Context) {
 	// TCP连接读取异常时, 关闭Session
 	defer close(s.done)
 
+	logger := slog.Default()
 	// 死循环读取TCP字节流
 	buf := make([]byte, 4096)
 	for {
@@ -80,10 +86,10 @@ func (s *Session) ReadLoop() {
 				if n > 0 {
 					handleNewBytes(buf[:n])
 				}
-				config.AppLogger.Info("client session closed", slog.String("remote", s.conn.RemoteAddr().String()))
+				logger.InfoContext(ctx, "client session closed", slog.String("remote", s.conn.RemoteAddr().String()))
 				return
 			} else {
-				config.AppLogger.Error("cilent read error",
+				logger.ErrorContext(ctx, "cilent read error",
 					slog.String("remote", s.conn.RemoteAddr().String()),
 					slog.Any("error", err))
 				return
@@ -94,16 +100,18 @@ func (s *Session) ReadLoop() {
 	}
 }
 
-func (s *Session) WriteLoop() {
+func (s *Session) WriteLoop(ctx context.Context) {
 	// TCP写入异常 or 接收到session关闭标记, 关闭连接
 	defer s.conn.Close()
+
+	logger := slog.Default()
 
 	// 死循环监听报文发送缓存与session关闭标记的就绪态
 	for {
 		select {
 		case msg := <-s.Send:
 			if _, err := s.conn.Write(msg); err != nil {
-				config.AppLogger.Error("cilent write error",
+				logger.ErrorContext(ctx, "cilent write error",
 					slog.String("remote", s.conn.RemoteAddr().String()),
 					slog.Any("error", err))
 				return

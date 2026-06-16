@@ -12,24 +12,29 @@ import (
 	config "github.com/compassa/tomatomq/internal/broker/config"
 	brokerutil "github.com/compassa/tomatomq/internal/pkg/broker"
 	tomatocfg "github.com/compassa/tomatomq/internal/pkg/config"
+	"github.com/compassa/tomatomq/internal/pkg/constant"
+	"github.com/compassa/tomatomq/pkg/tomatolog"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 func StartReport(ctx context.Context, cfg *config.ServerConfig, cli *clientv3.Client) {
+	c := context.WithValue(ctx, tomatolog.LoggerNameKey, constant.EtcdLogger)
+	rootLogger := slog.Default()
+
 	// 创建租约
 	leaseResp, err := cli.Grant(ctx, 30)
 	if err != nil {
 		panic(fmt.Errorf("create release failed: %w", err))
 	}
 
-	config.AppLogger.Info("create lease succeed",
+	rootLogger.InfoContext(c, "create lease succeed",
 		slog.String("mark", "EtcdKeepAlive"),
 		slog.Int64("leaseId", int64(leaseResp.ID)),
 		slog.Int64("ttl", leaseResp.TTL))
 
 	// 写入broker信息
 	ip := tomatocfg.FetchPodIp()
-	config.AppLogger.Info("fetch ip success", slog.String("ip", ip))
+	rootLogger.InfoContext(c, "fetch ip success", slog.String("ip", ip))
 
 	key := brokerutil.BuildEctdKey(cfg.Group, cfg.BrokerName)
 	value := brokerutil.BuildEctdValue(ip, cfg.Port)
@@ -37,7 +42,7 @@ func StartReport(ctx context.Context, cfg *config.ServerConfig, cli *clientv3.Cl
 	if err != nil {
 		panic(fmt.Errorf("regiter broker meta failed: %w", err))
 	}
-	config.AppLogger.Info("report broker meta succeed",
+	rootLogger.InfoContext(c, "report broker meta succeed",
 		slog.String("mark", "EtcdKeepAlive"),
 		slog.String("key", key),
 		slog.String("value", value))
@@ -51,17 +56,17 @@ func StartReport(ctx context.Context, cfg *config.ServerConfig, cli *clientv3.Cl
 		for {
 			select {
 			case <-ctx.Done():
-				config.AppLogger.Info("context is done, stop lease",
+				rootLogger.InfoContext(c, "context is done, stop lease",
 					slog.String("mark", "EtcdKeepAlive"),
 					slog.Int64("leaseId", int64(leaseResp.ID)))
 				return
 			case resp := <-keepAliveCh:
 				if resp == nil {
-					config.AppLogger.Info("lease response is empty, restart report", slog.String("mark", "EtcdKeepAlive"))
+					rootLogger.InfoContext(c, "lease response is empty, restart report", slog.String("mark", "EtcdKeepAlive"))
 					StartReport(ctx, cfg, cli)
 					return
 				}
-				config.AppLogger.Info("lease keep-alice succeed",
+				rootLogger.InfoContext(c, "lease keep-alice succeed",
 					slog.String("mark", "EtcdKeepAlive"),
 					slog.Int64("leaseId", int64(resp.ID)),
 					slog.Int64("ttl", resp.TTL),

@@ -24,6 +24,9 @@ func main() {
 	env := tomatocfg.FetchEnv()
 	cfg := config.LoadConfig(env)
 
+	// 初始化日志
+	rootLogger := tomatocfg.LoadLogger(env, &cfg.Log)
+
 	// 初始化Etcd
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   cfg.Etcd.Endpoints,
@@ -45,7 +48,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("server.NewServer: %w", err))
 	}
-	config.AppLogger.Info("broker started",
+	rootLogger.Info("broker started",
 		slog.String("group", cfg.Server.Group),
 		slog.String("brokerName", cfg.Server.BrokerName))
 	broker.Serve()
