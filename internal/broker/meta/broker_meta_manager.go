@@ -18,8 +18,7 @@ import (
 )
 
 func StartReport(ctx context.Context, cfg *config.ServerConfig, cli *clientv3.Client) {
-	c := context.WithValue(ctx, tomatolog.LoggerNameKey, constant.EtcdLogger)
-	rootLogger := slog.Default()
+	logger := slog.Default().With(tomatolog.LoggerNameKey, constant.EtcdLogger)
 
 	// 创建租约
 	leaseResp, err := cli.Grant(ctx, 30)
@@ -27,14 +26,14 @@ func StartReport(ctx context.Context, cfg *config.ServerConfig, cli *clientv3.Cl
 		panic(fmt.Errorf("create release failed: %w", err))
 	}
 
-	rootLogger.InfoContext(c, "create lease succeed",
+	logger.Info("create lease succeed",
 		slog.String("mark", "EtcdKeepAlive"),
 		slog.Int64("leaseId", int64(leaseResp.ID)),
 		slog.Int64("ttl", leaseResp.TTL))
 
 	// 写入broker信息
 	ip := tomatocfg.FetchPodIp()
-	rootLogger.InfoContext(c, "fetch ip success", slog.String("ip", ip))
+	logger.Info("fetch ip success", slog.String("ip", ip))
 
 	key := brokerutil.BuildEctdKey(cfg.Group, cfg.BrokerName)
 	value := brokerutil.BuildEctdValue(ip, cfg.Port)
@@ -42,7 +41,7 @@ func StartReport(ctx context.Context, cfg *config.ServerConfig, cli *clientv3.Cl
 	if err != nil {
 		panic(fmt.Errorf("regiter broker meta failed: %w", err))
 	}
-	rootLogger.InfoContext(c, "report broker meta succeed",
+	logger.Info("report broker meta succeed",
 		slog.String("mark", "EtcdKeepAlive"),
 		slog.String("key", key),
 		slog.String("value", value))
@@ -56,17 +55,17 @@ func StartReport(ctx context.Context, cfg *config.ServerConfig, cli *clientv3.Cl
 		for {
 			select {
 			case <-ctx.Done():
-				rootLogger.InfoContext(c, "context is done, stop lease",
+				logger.Info("context is done, stop lease",
 					slog.String("mark", "EtcdKeepAlive"),
 					slog.Int64("leaseId", int64(leaseResp.ID)))
 				return
 			case resp := <-keepAliveCh:
 				if resp == nil {
-					rootLogger.InfoContext(c, "lease response is empty, restart report", slog.String("mark", "EtcdKeepAlive"))
+					logger.Info("lease response is empty, restart report", slog.String("mark", "EtcdKeepAlive"))
 					StartReport(ctx, cfg, cli)
 					return
 				}
-				rootLogger.InfoContext(c, "lease keep-alice succeed",
+				logger.Info("lease keep-alice succeed",
 					slog.String("mark", "EtcdKeepAlive"),
 					slog.Int64("leaseId", int64(resp.ID)),
 					slog.Int64("ttl", resp.TTL),

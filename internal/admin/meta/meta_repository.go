@@ -1,7 +1,7 @@
 /*
  * @Author: Tomato
  * @Date: 2026-06-02 23:01:13
- * @LastEditTime: 2026-06-17 00:26:39
+ * @LastEditTime: 2026-06-19 01:53:25
  */
 package meta
 
@@ -76,14 +76,14 @@ func (r *BrokerCacheRepo) StartWatch(ctx context.Context) error {
 
 func (r *BrokerCacheRepo) watchLoop(ctx context.Context) {
 	// 日志模块
-	rootLogger := slog.Default()
-	c := context.WithValue(ctx, tomatolog.LoggerNameKey, tomatoconstant.EtcdLogger)
+	logger := slog.Default().With(tomatolog.LoggerNameKey, tomatoconstant.EtcdLogger)
+	c := context.Background()
 
 	// 外层循环, 处理watch重连
 	for {
 		// 注册watch,
 		ch := r.cli.Watch(c, tomatoconstant.EtcdBrokerPrefix, clientv3.WithPrefix(), clientv3.WithProgressNotify())
-		rootLogger.InfoContext(c, "broker watch registered")
+		logger.Info("broker watch registered")
 
 	inner:
 		// 内层循环, 消费watch
@@ -91,33 +91,33 @@ func (r *BrokerCacheRepo) watchLoop(ctx context.Context) {
 			select {
 			// 程序退出
 			case <-ctx.Done():
-				rootLogger.InfoContext(c, "stop broker watch loop")
+				logger.Info("stop broker watch loop")
 				return
 			// 长时间没收到响应, 启动重连
 			case <-time.After(15 * time.Minute):
-				rootLogger.WarnContext(c, "no progress notify, try to reconnect")
+				logger.Warn("no progress notify, try to reconnect")
 				break inner
 			case watch, ok := <-ch:
 				// 通道关闭, 尝试重连
 				if !ok {
-					rootLogger.WarnContext(c, "watch channel closed, try to reconnect")
+					logger.Warn("watch channel closed, try to reconnect")
 					break inner
 				}
 
 				// etcd服务端变更, 尝试重连
 				if watch.Canceled {
-					rootLogger.WarnContext(c, "watch canceled, try to reconnect")
+					logger.Warn("watch canceled, try to reconnect")
 					break inner
 				}
 
 				// 服务端心跳推送, 忽略
 				if watch.IsProgressNotify() {
-					rootLogger.InfoContext(c, "receive watch progress notify")
+					logger.Info("receive watch progress notify")
 					continue
 				}
 
 				// 消费变更
-				r.applyEvents(c, watch.Events)
+				r.applyEvents(watch.Events, logger)
 			}
 		}
 
@@ -125,9 +125,7 @@ func (r *BrokerCacheRepo) watchLoop(ctx context.Context) {
 	}
 }
 
-func (r *BrokerCacheRepo) applyEvents(ctx context.Context, events []*clientv3.Event) {
-	rootLogger := slog.Default()
-
+func (r *BrokerCacheRepo) applyEvents(events []*clientv3.Event, logger *slog.Logger) {
 	// 拷贝缓存
 	cache := r.loadCache()
 	newCache := make(map[string][]*BrokerMeta, len(cache))
@@ -142,7 +140,7 @@ func (r *BrokerCacheRepo) applyEvents(ctx context.Context, events []*clientv3.Ev
 		k := string(event.Kv.Key)
 		v := string(event.Kv.Value)
 		t := event.Type
-		rootLogger.InfoContext(ctx, "receive watch event",
+		logger.Info("receive watch event",
 			slog.String("key", k),
 			slog.String("value", v),
 			slog.String("type", t.String()))
@@ -180,7 +178,7 @@ func (r *BrokerCacheRepo) applyEvents(ctx context.Context, events []*clientv3.Ev
 			}
 		case mvccpb.DELETE:
 			if !has {
-				rootLogger.WarnContext(ctx, "broker group not exist in the cache", slog.String("brokerGroup", group))
+				logger.Warn("broker group not exist in the cache", slog.String("brokerGroup", group))
 				continue
 			}
 			pos := -1

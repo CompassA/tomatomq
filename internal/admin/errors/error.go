@@ -1,11 +1,13 @@
 /*
  * @Author: Tomato
  * @Date: 2026-05-28 00:33:06
- * @LastEditTime: 2026-06-14 22:25:41
+ * @LastEditTime: 2026-06-19 01:48:26
  */
 package errors
 
-import "strconv"
+import (
+	"fmt"
+)
 
 type ErrCode int
 
@@ -23,10 +25,11 @@ type ErrorInfo struct {
 }
 
 func (e *ErrorInfo) Error() string {
+	errstr := ""
 	if e.Err != nil {
-		return e.Err.Error()
+		errstr = e.Err.Error()
 	}
-	return "Code:" + strconv.Itoa(int(e.Code)) + ",Message:" + e.Message
+	return fmt.Sprintf("Code:%d,Message:%s,InnerErr:%s", e.Code, e.Message, errstr)
 }
 
 func (e *ErrorInfo) Unwrap() error {
@@ -37,10 +40,7 @@ func (e *ErrorInfo) Unwrap() error {
 }
 
 func NewError(code ErrCode, msg string) *ErrorInfo {
-	return &ErrorInfo{
-		Code:    code,
-		Message: msg,
-	}
+	return WrapError(code, msg, nil)
 }
 
 func WrapError(code ErrCode, msg string, err error) *ErrorInfo {

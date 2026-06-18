@@ -1,11 +1,11 @@
 /*
  * @Author: Tomato
  * @Date: 2026-05-17 22:05:37
- * @LastEditTime: 2026-06-17 01:14:43
+ * @LastEditTime: 2026-06-19 01:42:11
  * 日志模块封装思路:
  * - 编写slog handler, 日志API使用slog, 底层通过ZapLogger输出日志
  * - 应用只初始化一个logger, 每次受理网络请求时, 基于rootlogger调用with方法绑定通用参数(如traceId), 派生请求logger, 后续的业务逻辑中通过FromCtx使用派生的logger
- * - handler中保存多个zaplogger, 运行时通过设置context指定将使用哪个zaplogger写日志
+ * - handler中保存多个zaplogger, 运行时执行withAttr函数, 通过设置loggerName参数, 选择zaplogger输出日志
  */
 package tomatolog
 
@@ -21,20 +21,17 @@ import (
 )
 
 // 一些参数key
-type (
-	loggerNameKeyType struct{}
-	ctxLoggerKeyType  struct{}
-)
+type ctxLoggerKeyType struct{}
 
-var (
-	CtxLoggerKey  = ctxLoggerKeyType{}  // ctx中的logger
-	LoggerNameKey = loggerNameKeyType{} // ctx中配置的模块日志参数, 对应ZapHandler.loggers的key
-)
+var CtxLoggerKey = ctxLoggerKeyType{} // ctx中的logger
+
+const LoggerNameKey = "LoggerName" // ctx中配置的模块日志参数, 对应ZapHandler.loggers的key
 
 type ZapHandler struct {
-	loggers       map[string]*zap.Logger // 配置文件中的logger名称 -> logger实现类
-	defaultLogger *zap.Logger            // 默认的logger
-	attrs         []zap.Field            // attrs
+	logger     *zap.Logger            // logger
+	loggerName string                 // 日志名称
+	loggerMap  map[string]*zap.Logger // 配置文件中的logger名称 -> logger实现类
+	attrs      []zap.Field            // attrs
 }
 
 func NewZapLogger(cores []zapcore.Core) *zap.Logger {
@@ -50,14 +47,15 @@ func NewZapLogger(cores []zapcore.Core) *zap.Logger {
 	return zap.New(core)
 }
 
-func NewZapHandler(loggers map[string]*zap.Logger, defaultLoggerName string) *ZapHandler {
-	if defaultLogger, ok := loggers[defaultLoggerName]; ok {
+func NewZapHandler(loggerMap map[string]*zap.Logger, loggerName string) *ZapHandler {
+	if logger, ok := loggerMap[loggerName]; ok {
 		return &ZapHandler{
-			loggers:       loggers,
-			defaultLogger: defaultLogger,
+			logger:     logger,
+			loggerName: loggerName,
+			loggerMap:  loggerMap,
 		}
 	}
-	panic("default logger " + defaultLoggerName + " not found")
+	panic("logger " + loggerName + " not found")
 }
 
 func FromCtx(ctx context.Context) *slog.Logger {
@@ -81,16 +79,8 @@ func (h *ZapHandler) Handle(c context.Context, r slog.Record) error {
 		return true
 	})
 
-	// 选择目标zap logger
-	logger := h.defaultLogger
-	if loggerName, ok := c.Value(LoggerNameKey).(string); ok {
-		if l, ok := h.loggers[loggerName]; ok {
-			logger = l
-		}
-	}
-
 	// 输出日志
-	logger.Log(convertLevel(r.Level), r.Message, fields...)
+	h.logger.Log(convertLevel(r.Level), r.Message, fields...)
 	return nil
 }
 
@@ -106,16 +96,29 @@ func (h *ZapHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		copy(newAttrs, h.attrs)
 	}
 
-	// 添加新的属性
+	// 添加新的属性, 并且判断下是否需要切换日志
+	newLoggerName := ""
 	for _, attr := range attrs {
+		if attr.Key == LoggerNameKey {
+			newLoggerName = attr.Value.String()
+		}
 		newAttrs = append(newAttrs, slogAttrToZapField(attr))
+	}
+	logger := h.logger
+	logerName := h.loggerName
+	if len(newLoggerName) != 0 {
+		if newLogger, ok := h.loggerMap[newLoggerName]; ok {
+			logger = newLogger
+			logerName = newLoggerName
+		}
 	}
 
 	// 构造新的logger
 	return &ZapHandler{
-		loggers:       h.loggers,
-		defaultLogger: h.defaultLogger,
-		attrs:         newAttrs,
+		logger:     logger,
+		loggerName: logerName,
+		loggerMap:  h.loggerMap,
+		attrs:      newAttrs,
 	}
 }
 

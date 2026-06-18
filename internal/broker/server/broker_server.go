@@ -42,21 +42,23 @@ func NewServer(listenAddr string) (*Server, error) {
 }
 
 func (s *Server) Serve() {
-	c := context.WithValue(context.Background(), tomatolog.LoggerNameKey, constant.ServerLogger)
-	logger := slog.Default()
+	logger := slog.Default().With(tomatolog.LoggerNameKey, constant.ServerLogger)
 
 	for {
 		conn, err := s.Ln.Accept()
 		if err != nil {
-			logger.ErrorContext(c, "accept erorr", slog.Any("error", err))
+			logger.Error("accept erorr", slog.Any("error", err))
 			return
 		}
-		logger.InfoContext(c, "NewConnection",
+		logger.Info("NewConnection",
 			slog.String("local", conn.LocalAddr().String()),
 			slog.String("remote", conn.RemoteAddr().String()))
 
 		session := NewSession(conn, 128)
 		s.Sessions = append(s.Sessions, *session)
+
+		c := context.WithValue(context.Background(), tomatolog.CtxLoggerKey, logger)
+
 		go session.ReadLoop(c)
 		go session.WriteLoop(c)
 	}
@@ -75,7 +77,7 @@ func (s *Session) ReadLoop(ctx context.Context) {
 	// TCP连接读取异常时, 关闭Session
 	defer close(s.done)
 
-	logger := slog.Default()
+	logger := tomatolog.FromCtx(ctx)
 	// 死循环读取TCP字节流
 	buf := make([]byte, 4096)
 	for {
@@ -86,10 +88,10 @@ func (s *Session) ReadLoop(ctx context.Context) {
 				if n > 0 {
 					handleNewBytes(buf[:n])
 				}
-				logger.InfoContext(ctx, "client session closed", slog.String("remote", s.conn.RemoteAddr().String()))
+				logger.Info("client session closed", slog.String("remote", s.conn.RemoteAddr().String()))
 				return
 			} else {
-				logger.ErrorContext(ctx, "cilent read error",
+				logger.Error("cilent read error",
 					slog.String("remote", s.conn.RemoteAddr().String()),
 					slog.Any("error", err))
 				return
@@ -104,14 +106,14 @@ func (s *Session) WriteLoop(ctx context.Context) {
 	// TCP写入异常 or 接收到session关闭标记, 关闭连接
 	defer s.conn.Close()
 
-	logger := slog.Default()
+	logger := tomatolog.FromCtx(ctx)
 
 	// 死循环监听报文发送缓存与session关闭标记的就绪态
 	for {
 		select {
 		case msg := <-s.Send:
 			if _, err := s.conn.Write(msg); err != nil {
-				logger.ErrorContext(ctx, "cilent write error",
+				logger.Error("cilent write error",
 					slog.String("remote", s.conn.RemoteAddr().String()),
 					slog.Any("error", err))
 				return
